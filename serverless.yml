@@ -1,0 +1,127 @@
+service: serverless-event-collector
+
+frameworkVersion: '2'
+plugins:
+  - serverless-python-requirements
+
+provider:
+  name: aws
+  region: us-east-1
+  runtime: python3.8
+  lambdaHashingVersion: 20201221
+  iam:
+    role:
+      managedPolicies:
+        # Let lambdas write to CloudWatch
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      statements:
+        - Effect: "Allow"
+          Action:
+            - apigateway:GET
+            - firehose:PutRecord
+            - "s3:*"
+            - "dynamodb:*"
+          Resource: "*"
+  apiGateway:
+    apiKeySourceType: AUTHORIZER
+  environment:
+    ENVIRONMENT: ${opt:stage}
+
+package:
+  individually: true
+  patterns:
+    - '!node_modules/**'
+    - '!**/venv/**'
+    - '!**/.venv/**'
+    - '!**/cov_html/**'
+    - '!**/tests/**'
+    - '!**/.idea/**'
+    - '!**/.mypy_cache/**'
+    - '!**/.pytest_cache/**'
+
+functions:
+  api:
+    handler: collector.mangum.handler
+    module: collector
+    # Can take a little bit to create a DynamoDB table if necessary
+    timeout: 30
+    events:
+      - http:
+          path: /
+          method: get
+          cors: true
+      - http:
+          path: /{proxy+}
+          method: get
+          cors: true
+      - http:
+          path: /button/{proxy+}
+          method: ANY
+          # https://forum.serverless.com/t/cors-problem-when-using-custom-authorizer/11266/2
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+            allowCredentials: true
+          authorizer:
+            name: auth
+            type: request
+            # TODO: Change ttl to something > 0. This seems to break CORS, though
+            resultTtlInSeconds: 0
+      - http:
+          path: /web/{proxy+}
+          method: ANY
+          # https://forum.serverless.com/t/cors-problem-when-using-custom-authorizer/11266/2
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+            allowCredentials: true
+          authorizer:
+            name: auth
+            type: request
+            resultTtlInSeconds: 0
+
+    environment:
+      KINESIS_STREAM: ${opt:stage}-serverless-event-collector
+
+  auth:
+    handler: main.handler
+    module: authorizer
+
+  fan_out:
+    handler: main.handler
+    module: fan_out
+    timeout: 600
+    events:
+      - s3:
+          bucket: ${self:custom.kinesis.bucket}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: ${self:custom.kinesis.prefix}
+          # The bucket gets created in the resources yml, so we need to specify that
+          # it already exists here. Otherwise, serverless will try to create it again
+          # and will run into an error because it already exists.
+          existing: true
+
+custom:
+  kinesis:
+    bucket: ${opt:stage}-serverless-event-collector
+    prefix: raw/
+
+  pythonRequirements:
+    dockerizePip: non-linux
+    useDownloadCache: true
+    useStaticCache: true
+
+resources: ${file(resources.yml)}

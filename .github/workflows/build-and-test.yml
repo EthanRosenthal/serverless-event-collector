@@ -1,0 +1,25 @@
+name: Python package
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8.8
+
+      # Presumably, each make command should be split out into its own task, and we should
+      # be caching installed dependencies and all that goodness, but let's no prematurely
+      # optimize.
+      - name: make
+        run: |
+          make

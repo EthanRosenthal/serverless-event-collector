@@ -1,0 +1,61 @@
+# Taken from here https://github.com/otofu-square/serverless-kinesis-firehose
+---
+Resources:
+  FirehoseToS3Role:
+    Type: AWS::IAM::Role
+    Properties:
+#      RoleName: FirehoseToS3Role${opt:stage}
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - firehose.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: FirehoseToS3Policy
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action:
+              - s3:AbortMultipartUpload
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+              - s3:PutObject
+              Resource: '*'
+  ServerlessKinesisFirehoseBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: ${opt:stage}-serverless-event-collector
+  ServerlessKinesisFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: ${opt:stage}-serverless-event-collector
+      S3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+          - ''
+          - - 'arn:aws:s3:::'
+            - Ref: ServerlessKinesisFirehoseBucket
+        BufferingHints:
+          IntervalInSeconds: "60"
+          SizeInMBs: "1"
+        CompressionFormat: "UNCOMPRESSED"
+        Prefix: ${self:custom.kinesis.prefix}
+        RoleARN: { Fn::GetAtt: [ FirehoseToS3Role , Arn ] }
+# Taken from https://github.com/serverless/serverless/issues/3896#issuecomment-326721971
+# to allow for CORS + custom API Gateway authorizer
+  GatewayResponse:
+    Type: 'AWS::ApiGateway::GatewayResponse'
+    Properties:
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+      ResponseType: EXPIRED_TOKEN
+      RestApiId:
+        Ref: 'ApiGatewayRestApi'
+      StatusCode: '401'
