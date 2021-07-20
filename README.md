@@ -1,6 +1,6 @@
 # serverless-event-collector
 
-[Docs](https://3o9x126nr7.execute-api.us-east-1.amazonaws.com/prod/docs)
+[Docs](https://6vp50ittt5.execute-api.us-east-1.amazonaws.com/prod/docs)
 
 This is an example repo for a serverless event collector built on AWS. The example involves collecting two types of events: page views from a website, and "clicks" of a button on a website. The diagram below shows the flow of the event data. 
 
@@ -15,7 +15,7 @@ The entire serverless event collector is deployed together using the [serverless
 
 ## Usage
 
-The event collector collects events via HTTP POST requests. See the [API docs](https://3o9x126nr7.execute-api.us-east-1.amazonaws.com/prod/docs) for documentation. Requests must be authenticated in order to POST to the API. Currently, the `authorizer` function contains a hardcoded map of usernames and passwords for Basic Authentication. In practice, I would recommend using AWS Secrets Manager. Example Python code for collecting a `button_click` event is shown below.
+The event collector collects events via HTTP POST requests. See the [API docs](https://6vp50ittt5.execute-api.us-east-1.amazonaws.com/prod/docs) for documentation. Requests must be authenticated in order to POST to the API. Currently, the `authorizer` function contains a hardcoded map of usernames and passwords for Basic Authentication. In practice, I would recommend using AWS Secrets Manager. Example Python code for collecting a `button_click` event is shown below.
 
 ```python
 import requests
